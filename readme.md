@@ -1,5 +1,6 @@
 # NFC NFCA Examples
 
+This app reads NCFA data from a NFC-Tag of type **NXP NTAG21x** only.
 
 ```plaintext
     <uses-permission android:name="android.permission.NFC" />
