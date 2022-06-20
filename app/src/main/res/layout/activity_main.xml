@@ -11,7 +11,6 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-
         <TextView
             android:id="@+id/tvTitle"
             android:layout_width="match_parent"
@@ -33,16 +32,6 @@
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/tvMainNfcaContentParsed"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginTop="16dp"
-            android:layout_marginEnd="8dp"
-            android:hint="the NDEF formatted parsed record comes here"
-            android:textSize="16sp" />
-
-        <TextView
             android:id="@+id/tvMainNfcaContentRaw"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -50,6 +39,16 @@
             android:layout_marginTop="16dp"
             android:layout_marginEnd="8dp"
             android:hint="the NDEF formatted raw record comes here"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/tvMainNfcaContentParsed"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="8dp"
+            android:hint="the NDEF formatted parsed record comes here"
             android:textSize="16sp" />
 
     </LinearLayout>
