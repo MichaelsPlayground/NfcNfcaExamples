@@ -134,3 +134,24 @@ There aren't that many NTAG413 or NTAG424 tags around at the moment but it's a v
 right direction. Note that this feature requires specialist technology such as our Ixkio platform to
 verify the authenticity of the SUN message.
 
+
+https://stackoverflow.com/questions/26230161/how-do-i-remove-read-only-mode-from-nfc-tag
+How do I remove read only mode from NFC tag
+
+I am using NTAG203 NFC tags. I made it read only mode by mistake. How can I change read only mode to writable mode?
+
+That depends on how you made the tag read-only:
+
+The tag has the capability to permanently write-protect its memory using lock bits. Once these lock bits are programmed,
+its impossible to revert those memory areas to a writable state.
+The tag, when used as an NFC Forum Type 2 tag containing NDEF data, has an additional read-only indicator in the NFC
+Forum tag's capability container. If only that indicator was used to set the tag to read-only (and no lock bits were set),
+you could still change the content of the tag. While you cannot reverse the read-only indication in the capability
+container to indicate read/write access, you could use low-level write operations to access the data pages
+(pages 4 to 39) of your tag. (E.g. on Android you could use the writePage() method of the MifareUltalight object.)
+
+
+
+
+
+
