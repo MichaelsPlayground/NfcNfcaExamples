@@ -21,39 +21,101 @@ import androidx.appcompat.app.AppCompatActivity;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
-public class MainActivity extends AppCompatActivity implements NfcAdapter.ReaderCallback {
+public class WriteActivity extends AppCompatActivity implements NfcAdapter.ReaderCallback {
 
-    Button fastReadMode, writeMode;
+    com.google.android.material.textfield.TextInputLayout inputFieldDecoration;
+    com.google.android.material.textfield.TextInputEditText inputField, resultNfcWriting;
+
     TextView nfcContentParsed, nfcContentRaw;
-
+    Button sample1, sample2;
     private NfcAdapter mNfcAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        fastReadMode = findViewById(R.id.btnMainNfcaFastRead);
-        writeMode = findViewById(R.id.btnMainNfcaWrite);
-        nfcContentParsed = findViewById(R.id.tvMainNfcaContentParsed);
-        nfcContentRaw = findViewById(R.id.tvMainNfcaContentRaw);
+        setContentView(R.layout.activity_write);
+        inputField = findViewById(R.id.etWriteInputField);
+        inputFieldDecoration = findViewById(R.id.etWriteInputFieldDecoration);
+        nfcContentParsed = findViewById(R.id.tvWriteNfcaContentParsed);
+        nfcContentRaw = findViewById(R.id.tvWriteNfcaContentRaw);
+        sample1 = findViewById(R.id.btnWriteSample1);
+        sample2 = findViewById(R.id.btnWriteSample2);
         mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
 
-        fastReadMode.setOnClickListener(new View.OnClickListener() {
+        sample1.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent intent = new Intent(MainActivity.this, FastActivity.class);
-                startActivity(intent);
+                inputField.setText("Some testdata to write on the tag");
             }
         });
 
-        writeMode.setOnClickListener(new View.OnClickListener() {
+        sample2.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent intent = new Intent(MainActivity.this, WriteActivity.class);
-                startActivity(intent);
+                inputField.setText("Some more testdata to write on the tag");
             }
         });
     }
+
+/*
+https://stackoverflow.com/a/43714061/8166854
+
+Enable/Disable counter for NTAG213
+Ask Question
+Asked 5 years, 1 month ago
+Modified 5 years, 1 month ago
+Viewed 874 times
+
+1
+
+
+    MifareUltralight mifareUltralight = MifareUltralight.get(tag);
+    byte[] toggleCounterCommand = new byte[]{(byte)0xA2, // NTAG213 command to write
+                                    (byte)0x2A,  // page 42(dec) 2A(hex)
+                                     (byte)___};// not sure what to put here.
+The data sheet for NTAG213 says that the 0th byte of page 42 has the access information.
+
+The 0th byte is structured in the following way :
+
+ 7       6         5        *4*            3          2  1  0
+PROT  CFGLCK   RFUI    *NFC_CNT_EN*  NFC_CNT_PWD_PROT   AUTHLIM
+Setting the 4th bit to 0 or 1 should enable or disable the counter. But I'm not sure how to set the 4th bit while writing on the tag.
+
+Counter, Read & Write
+Context for anyone coming to this in the future:
+
+NTAG21x features a NFC counter function. This function enables NTAG21x to automatically increase the 24 bit counter value, triggered by the first valid
+
+READ command or
+FAST-READ command
+after the NTAG21x tag is powered by an RF field. Once the NFC counter has reached the maximum value of FF FF FF hex, the NFC counter value will not change any more. The NFC counter is enabled or disabled with the NFC_CNT_EN bit (see Section 8.5.7) http://www.nxp.com/documents/data_sheet/NTAG213_215_216.pdf.
+My understanding is that you're on the right track with writing to the tag, you want to use the  transceive method to update that bit, but you're not sure what data to write in order to achieve this . Note that MifraUltralight.transceieve(byte[]) is equivalent to connecting to this tag via NfcA and calling transceive(byte[]).
+
+An important thing to note is that "Applications must only send commands that are complete bytes" (from Android docs) so we must update that entire byte. However, we want to write to the tag, which only supports a payload of 4 bytes (1 page) so we will be rewriting the whole page.
+
+This is where my experience starts to break down a little bit, but I would suggest an approach of:
+
+Read page 42, copy the bytes to a buffer
+Write those copied bytes to page 42, but update the counter bit first
+Doing step 1:
+
+NfcA transaction = NfcA.get(tag);
+transaction.connect(); // error handle
+byte cmdRead = (byte)0x30;
+byte page = (byte)(0x42 & 0xff); // AND to make sure it is the correct size
+byte[] command = new byte[] {cmdRead, page};
+byte[] page42 = nfcAtransaction.transceive(command); // error handle
+
+byte mask = 0b00010000; // 3rd bit, or should it be 4th?
+byte newData = page42[0] | mask;
+Doing step 2:
+
+byte cmdWrite = (byte)0xA2;
+byte page = (byte)(42 & 0xff);
+byte[] command = new byte[] { cmdWrite, page, newData, page42[1], page42[2], page42[3]};
+byte[] result = nfcA.transceive(command);
+Completely untested, but I hope this helps.
+ */
 
     // This method is run in another thread when a card is discovered
     // !!!! This method cannot cannot direct interact with the UI Thread
@@ -115,21 +177,28 @@ public class MainActivity extends AppCompatActivity implements NfcAdapter.Reader
                 // read the content of the tag in several runs
                 byte[] response;
                 try {
-                    // one read will read 4 pages of each 4 bytes = 16 bytes
-                    int nfcaReadFullRounds = ntagMemoryBytes / 16; // 55
-                    int nfcaReadFullRoundsTotalBytes = nfcaReadFullRounds * 16; // 880 bytes
-                    int nfcaReadModuloRoundsTotalBytes = ntagMemoryBytes - nfcaReadFullRoundsTotalBytes; // 8 bytes
-                    nfcaContent = nfcaContent + "nfcaReadFullRounds: " + nfcaReadFullRounds + "\n";
-                    nfcaContent = nfcaContent + "nfcaReadFullRoundsTotalBytes: " + nfcaReadFullRoundsTotalBytes + "\n";
-                    nfcaContent = nfcaContent + "nfcaReadModuloRoundsTotalBytes: " + nfcaReadModuloRoundsTotalBytes + "\n";
-                    // do the full readings + 1, we get data from internal data and have to strip them off in the end
-                    for (int i = 0; i <= nfcaReadFullRounds; i++) {
-                        byte[] command = new byte[]{
-                                (byte) 0x30,  // READ
-                                (byte) ((4 + (i * 4)) & 0x0ff), // page 4 is the first user memory page
+                    //int nfcaMaxTranceiveLength = nfcA.getMaxTransceiveLength(); // my device: 253 bytes
+                    int nfcaMaxTranceive4ByteTrunc = nfcaMaxTranceiveLength / 4; // 63
+                    int nfcaMaxTranceive4ByteLength = nfcaMaxTranceive4ByteTrunc * 4; // 252 bytes
+                    int nfcaNrOfFullReadings = ntagMemoryBytes / nfcaMaxTranceive4ByteLength; // 888 bytes / 252 bytes = 3 full readings
+                    int nfcaTotalFullReadingBytes = nfcaNrOfFullReadings * nfcaMaxTranceive4ByteLength; // 3 * 252 = 756
+                    int nfcaMaxTranceiveModuloLength = ntagMemoryBytes - nfcaTotalFullReadingBytes; // 888 bytes - 756 bytes = 132 bytes
+                    nfcaContent = nfcaContent + "nfcaMaxTranceive4ByteTrunc: " + nfcaMaxTranceive4ByteTrunc + "\n";
+                    nfcaContent = nfcaContent + "nfcaMaxTranceive4ByteLength: " + nfcaMaxTranceive4ByteLength + "\n";
+                    nfcaContent = nfcaContent + "nfcaNrOfFullReadings: " + nfcaNrOfFullReadings + "\n";
+                    nfcaContent = nfcaContent + "nfcaTotalFullReadingBytes: " + nfcaTotalFullReadingBytes + "\n";
+                    nfcaContent = nfcaContent + "nfcaMaxTranceiveModuloLength: " + nfcaMaxTranceiveModuloLength + "\n";
+
+                    for (int i = 0; i < nfcaNrOfFullReadings; i++) {
+                        //nfcaContent = nfcaContent + "starting round: " + i + "\n";
+                        System.out.println("starting round: " + i);
+                        byte[] commandF = new byte[]{
+                                (byte) 0x3A,  // FAST_READ
+                                (byte) ((4 + (nfcaMaxTranceive4ByteTrunc * i)) & 0x0ff), // page 4 is the first user memory page
+                                (byte) ((4 + (nfcaMaxTranceive4ByteTrunc * (i + 1)) - 1) & 0x0ff)
                         };
-                        // nfcaContent = nfcaContent + "i: " + i + " command: " + bytesToHex(command) + "\n";
-                        response = nfcA.transceive(command);
+                        //nfcaContent = nfcaContent + "i: " + i + " commandF: " + bytesToHex(commandF) + "\n";
+                        response = nfcA.transceive(commandF);
                         if (response == null) {
                             // either communication to the tag was lost or a NACK was received
                             // Log and return
@@ -155,19 +224,53 @@ public class MainActivity extends AppCompatActivity implements NfcAdapter.Reader
                             // nfcaContent = nfcaContent + "successful reading " + response.length + " bytes\n";
                             // nfcaContent = nfcaContent + bytesToHex(response) + "\n";
                             // copy the response to the ntagMemory
-                            // beware that the last response recieves to many bytes
-                            // NTAG216 does have 888 bytes memory but we already read
-                            // 55 * 16 = 880 bytes, so we should copy 8 bytes only in the last round
-                            if (i < nfcaReadFullRounds) {
-                                System.arraycopy(response, 0, ntagMemory, (16 * i), 16);
-                            } else {
-                                System.arraycopy(response, 0, ntagMemory, (16 * nfcaReadFullRounds), (ntagMemoryBytes - nfcaReadFullRoundsTotalBytes));
-                            }
-
+                            //nfcaContent = nfcaContent + "number of bytes read: : " + response.length + "\n";
+                            //nfcaContent = nfcaContent + "response:\n" + bytesToHex(response) + "\n";
+                            System.arraycopy(response, 0, ntagMemory, (nfcaMaxTranceive4ByteLength * i), nfcaMaxTranceive4ByteLength);
                         }
-                    }
-                    nfcaContent = nfcaContent + "full reading complete: " + "\n" + bytesToHex(ntagMemory) + "\n";
+                    } // for
 
+                    // now we read the nfcaMaxTranceiveModuloLength bytes, for a NTAG216 = 132 bytes
+                    //nfcaContent = nfcaContent + "starting last round: " + "\n";
+                    //System.out.println("starting last round: ");
+                    byte[] commandF = new byte[]{
+                            (byte) 0x3A,  // FAST_READ
+                            (byte) ((4 + (nfcaMaxTranceive4ByteTrunc * nfcaNrOfFullReadings)) & 0x0ff), // page 4 is the first user memory page
+                            (byte) ((4 + (nfcaMaxTranceive4ByteTrunc * nfcaNrOfFullReadings) + (nfcaMaxTranceiveModuloLength / 4) & 0x0ff))
+                    };
+                    //nfcaContent = nfcaContent + "last: " + " commandF: " + bytesToHex(commandF) + "\n";
+                    response = nfcA.transceive(commandF);
+                    if (response == null) {
+                        // either communication to the tag was lost or a NACK was received
+                        // Log and return
+                        nfcaContent = nfcaContent + "ERROR: null response";
+                        String finalNfcaText = nfcaContent;
+                        runOnUiThread(() -> {
+                            nfcContentRaw.setText(finalNfcaText);
+                            System.out.println(finalNfcaText);
+                        });
+                        return;
+                    } else if ((response.length == 1) && ((response[0] & 0x00A) != 0x00A)) {
+                        // NACK response according to Digital Protocol/T2TOP
+                        // Log and return
+                        nfcaContent = nfcaContent + "ERROR: NACK response: " + bytesToHex(response);
+                        String finalNfcaText = nfcaContent;
+                        runOnUiThread(() -> {
+                            nfcContentRaw.setText(finalNfcaText);
+                            System.out.println(finalNfcaText);
+                        });
+                        return;
+                    } else {
+                        // success: response contains ACK or actual data
+                        // nfcaContent = nfcaContent + "successful reading " + response.length + " bytes\n";
+                        // nfcaContent = nfcaContent + bytesToHex(response) + "\n";
+                        // copy the response to the ntagMemory
+                        //nfcaContent = nfcaContent + "number of bytes read: : " + response.length + "\n";
+                        //nfcaContent = nfcaContent + "response:\n" + bytesToHex(response) + "\n";
+                        System.arraycopy(response, 0, ntagMemory, (nfcaMaxTranceive4ByteLength * nfcaNrOfFullReadings), nfcaMaxTranceiveModuloLength);
+                    }
+
+                    nfcaContent = nfcaContent + "fast reading complete: " + "\n" + bytesToHex(ntagMemory) + "\n";
                 } catch (TagLostException e) {
                     // Log and return
                     nfcaContent = nfcaContent + "ERROR: Tag lost exception";

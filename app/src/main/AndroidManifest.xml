@@ -17,6 +17,8 @@
         tools:targetApi="32">
         <activity android:name=".FastActivity"
             android:exported="false"/>
+        <activity android:name=".WriteActivity"
+            android:exported="false"/>
         <activity
             android:name=".MainActivity"
             android:exported="true">
