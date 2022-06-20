@@ -1,15 +1,10 @@
 package de.androidcrypto.nfcnfcaexamples;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import android.content.Context;
 import android.content.Intent;
-import android.nfc.NdefMessage;
-import android.nfc.NdefRecord;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.nfc.TagLostException;
-import android.nfc.tech.Ndef;
 import android.nfc.tech.NfcA;
 import android.os.Build;
 import android.os.Bundle;
@@ -19,10 +14,11 @@ import android.provider.Settings;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.IOException;
-import java.util.Arrays;
+import androidx.appcompat.app.AppCompatActivity;
 
-public class MainActivity extends AppCompatActivity implements NfcAdapter.ReaderCallback {
+import java.io.IOException;
+
+public class MainActivityOld2 extends AppCompatActivity implements NfcAdapter.ReaderCallback {
 
     TextView nfcContentParsed, nfcContentRaw;
 
@@ -35,8 +31,6 @@ public class MainActivity extends AppCompatActivity implements NfcAdapter.Reader
         nfcContentParsed = findViewById(R.id.tvMainNfcaContentParsed);
         nfcContentRaw = findViewById(R.id.tvMainNfcaContentRaw);
         mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
-
-
     }
 
     public boolean getUID(Tag tag, StringBuilder Uid) {

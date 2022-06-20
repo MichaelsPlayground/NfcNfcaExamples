@@ -1,15 +1,10 @@
 package de.androidcrypto.nfcnfcaexamples;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import android.content.Context;
 import android.content.Intent;
-import android.nfc.NdefMessage;
-import android.nfc.NdefRecord;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.nfc.TagLostException;
-import android.nfc.tech.Ndef;
 import android.nfc.tech.NfcA;
 import android.os.Build;
 import android.os.Bundle;
@@ -19,10 +14,11 @@ import android.provider.Settings;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.IOException;
-import java.util.Arrays;
+import androidx.appcompat.app.AppCompatActivity;
 
-public class MainActivity extends AppCompatActivity implements NfcAdapter.ReaderCallback {
+import java.io.IOException;
+
+public class MainActivityOld extends AppCompatActivity implements NfcAdapter.ReaderCallback {
 
     TextView nfcContentParsed, nfcContentRaw;
 
@@ -143,31 +139,39 @@ public class MainActivity extends AppCompatActivity implements NfcAdapter.Reader
                 int nfcaMaxTranceiveLength = nfcA.getMaxTransceiveLength(); // important for the readFast command
                 int ntagPages = NfcIdentifyNtag.getIdentifiedNtagPages();
                 int ntagMemoryBytes = NfcIdentifyNtag.getIdentifiedNtagMemoryBytes();
-                String tagIdString = getDec(tag.getId());
                 String nfcaContent = "raw data of " + NfcIdentifyNtag.getIdentifiedNtagType() + "\n" +
                         "number of pages: " + ntagPages +
                         " total memory: " + ntagMemoryBytes +
                         " bytes\n" +
-                        "tag ID: " + bytesToHex(NfcIdentifyNtag.getIdentifiedNtagId()) + "\n" +
-                        "tag ID: " + tagIdString + "\n";
+                        "tag ID: " + bytesToHex(NfcIdentifyNtag.getIdentifiedNtagId()) + "\n";
                 nfcaContent = nfcaContent + "maxTranceiveLength: " + nfcaMaxTranceiveLength + " bytes\n";
                 // read the complete memory depending on ntag type
                 byte[] ntagMemory = new byte[ntagMemoryBytes];
-                // read the content of the tag in several runs
+                // read the complete content of the tag on one run
                 byte[] response;
                 try {
-                    // one read will read 4 pages of each 4 bytes = 16 bytes
-                    int nfcaReadFullRounds = ntagMemoryBytes / 16; // 55
-                    int nfcaReadFullRoundsTotalBytes = nfcaReadFullRounds * 16; // 880 bytes
-                    int nfcaReadModuloRoundsTotalBytes = ntagMemoryBytes - nfcaReadFullRoundsTotalBytes; // 8 bytes
-                    nfcaContent = nfcaContent + "nfcaReadFullRounds: " + nfcaReadFullRounds + "\n";
-                    nfcaContent = nfcaContent + "nfcaReadFullRoundsTotalBytes: " + nfcaReadFullRoundsTotalBytes + "\n";
-                    nfcaContent = nfcaContent + "nfcaReadModuloRoundsTotalBytes: " + nfcaReadModuloRoundsTotalBytes + "\n";
-                    // do the full readings
-                    for (int i = 0; i < nfcaReadFullRounds; i++) {
+                    // maximal bytes that can be read with one fast read that is divideble by 4
+                    //int nfcaMaxTranceiveLength = nfcA.getMaxTransceiveLength(); // my device: 253 bytes
+                    int nfcaMaxTranceive4ByteTrunc = nfcaMaxTranceiveLength/4; // 63
+                    int nfcaMaxTranceive4ByteLength = nfcaMaxTranceive4ByteTrunc * 4; // 252 bytes
+                    int nfcaNrOfFullReadings = ntagMemoryBytes / nfcaMaxTranceive4ByteLength; // 888 bytes / 252 bytes = 3 full readings
+                    int nfcaTotalFullReadingBytes = nfcaNrOfFullReadings * nfcaMaxTranceive4ByteLength; // 3 * 252 = 756
+                    int nfcaMaxTranceiveModuloLength = ntagMemoryBytes - nfcaTotalFullReadingBytes; // 888 bytes - 756 bytes = 132 bytes
+                    nfcaContent = nfcaContent + "nfcaMaxTranceive4ByteTrunc: " + nfcaMaxTranceive4ByteTrunc + "\n";
+                    nfcaContent = nfcaContent + "nfcaMaxTranceive4ByteLength: " + nfcaMaxTranceive4ByteLength + "\n";
+                    nfcaContent = nfcaContent + "nfcaNrOfFullReadings: " + nfcaNrOfFullReadings + "\n";
+                    nfcaContent = nfcaContent + "nfcaTotalFullReadingBytes: " + nfcaTotalFullReadingBytes + "\n";
+                    nfcaContent = nfcaContent + "nfcaMaxTranceiveModuloLength: " + nfcaMaxTranceiveModuloLength + "\n";
+
+                    // reading the content of full readings
+                    nfcaContent = nfcaContent + "reading the content of full readings" + "\n";
+                    byte[] fullReadingContent = new byte[nfcaMaxTranceive4ByteLength]; // 252 bytes
+                    int fullReadingPages = nfcaMaxTranceive4ByteLength / 4; // 63
+                    for (int i = 0; i < nfcaNrOfFullReadings; i++) {
                         byte[] command = new byte[]{
-                                (byte) 0x30,  // READ
-                                (byte) ((4 + (i * 4)) & 0x0ff), // page 4 is the first user memory page
+                                (byte) 0x3A,  // FAST_READ
+                                (byte) ((4 + (i * fullReadingPages)) & 0x0ff), // page 4 is the first user memory page
+                                (byte) (4 + (fullReadingPages + (i * fullReadingPages)) & 0x0ff), // 0x04 + 0x23  // this is the last user page depending on ntag type
                         };
                         nfcaContent = nfcaContent + "i: " + i + " command: " + bytesToHex(command) + "\n";
                         response = nfcA.transceive(command);
@@ -197,18 +201,29 @@ public class MainActivity extends AppCompatActivity implements NfcAdapter.Reader
                                     response.length + " bytes\n";
                             nfcaContent = nfcaContent + bytesToHex(response) +
                                     "\n";
-                            // copy the response to the ntagMemory
-                            System.arraycopy(response, 0, ntagMemory, (16 * i), 16);
-                        }
-                    }
-                    nfcaContent = nfcaContent + "full reading complete: " + "\n" + bytesToHex(ntagMemory) + "\n";
-                    nfcaContent = nfcaContent + "start reading of the last bytes: "+  "\n";
+                            // Close and return
+                        /*
+                        try {
+                            nfcA.close();
+                        } catch (IOException e) {
 
+                        }*/
+
+                        }
+
+
+                    }
+
+
+
+                    // todo make a paging because maxTranceiveBytes is too low for a NTAG215/216 on a Samsung A5 with 253 bytes
+                    // todo better read 144 bytes = 36 pages (= 0x24 in one run, this is the complete memory of a NTAG213
                     byte[] command = new byte[]{
-                            (byte) 0x30,  // READ
-                            (byte) ((4 + (nfcaReadFullRounds * 4)) & 0x0ff), // page 4 is the first user memory page
+                            (byte) 0x3A,  // FAST_READ
+                            (byte) (0x04 & 0x0ff), // page 4 is the first user memory page
+                            (byte) (0x43 & 0x0ff), // 0x04 + 0x3f  // this is the last user page depending on ntag type
                     };
-                    nfcaContent = nfcaContent + "i: " + nfcaReadFullRounds + " command: " + bytesToHex(command) + "\n";
+                    nfcaContent = nfcaContent + "command: " + bytesToHex(command) + "\n";
                     response = nfcA.transceive(command);
                     if (response == null) {
                         // either communication to the tag was lost or a NACK was received
@@ -236,13 +251,15 @@ public class MainActivity extends AppCompatActivity implements NfcAdapter.Reader
                                 response.length + " bytes\n";
                         nfcaContent = nfcaContent + bytesToHex(response) +
                                 "\n";
-                        // copy the response to the ntagMemory
-                        // beware that the last response recieves to many bytes
-                        // NTAG216 does have 888 bytes memomory but we already read
-                        // 55 * 16 = 880 bytes, so we should copy 8 bytes only
-                        System.arraycopy(response, 0, ntagMemory, (16 * nfcaReadFullRounds), (ntagMemoryBytes - nfcaReadFullRoundsTotalBytes));
+                        // Close and return
+                        /*
+                        try {
+                            nfcA.close();
+                        } catch (IOException e) {
+
+                        }*/
+
                     }
-                    nfcaContent = nfcaContent + "full content: " + "\n" + bytesToHex(ntagMemory) + "\n";
                 } catch (TagLostException e) {
                     // Log and return
                     nfcaContent = nfcaContent + "ERROR: Tag lost exception";
@@ -257,11 +274,34 @@ public class MainActivity extends AppCompatActivity implements NfcAdapter.Reader
                     e.printStackTrace();
 
                 }
+
+
                 String finalNfcaText = nfcaContent;
                 runOnUiThread(() -> {
                     nfcContentParsed.setText(finalNfcaText);
                     System.out.println(finalNfcaText);
                 });
+/*
+            StringBuilder Uid = new StringBuilder();
+            String contentRaw = "getUid from Tag: ";
+            boolean successUid = getUID(tag, Uid);
+            if (!successUid){
+                // Not a successful read
+                return;
+            } else {
+                // Feedback to user about successful read
+                contentRaw = contentRaw + Uid + "\n";
+                final String finalContentRaw = contentRaw;
+                runOnUiThread(() -> {
+                    nfcContentRaw.setText(finalContentRaw);
+                    Toast.makeText(getApplicationContext(),
+                            "NFC tag is Nfca compatible",
+                            Toast.LENGTH_SHORT).show();
+                });
+            }
+*/
+
+
             } else {
                 runOnUiThread(() -> {
                     Toast.makeText(getApplicationContext(),
@@ -282,6 +322,145 @@ public class MainActivity extends AppCompatActivity implements NfcAdapter.Reader
             } catch (IOException e) {
             }
         }
+        /*
+        Ndef mNdef = Ndef.get(tag);
+
+        // Check that it is an Ndef capable card
+        if (mNdef != null) {
+
+            // If we want to read
+            // As we did not turn on the NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK
+            // We can get the cached Ndef message the system read for us.
+
+            NdefMessage mNdefMessage = mNdef.getCachedNdefMessage();
+
+            // Make a vibration
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ((Vibrator) getSystemService(VIBRATOR_SERVICE)).vibrate(VibrationEffect.createOneShot(150,10));
+            } else {
+                Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+                v.vibrate(200);
+            }
+
+            NdefRecord[] record = mNdefMessage.getRecords();
+            String ndefContent = "raw data\n";
+            int ndefRecordsCount = record.length;
+            ndefContent = ndefContent + "nr of records: " + ndefRecordsCount + "\n";
+            // Success if got to here
+            runOnUiThread(() -> {
+                Toast.makeText(getApplicationContext(),
+                        "Read from NFC success, number of records: " + ndefRecordsCount,
+                        Toast.LENGTH_SHORT).show();
+            });
+
+            // get uid of the tag
+            ndefContent = ndefContent + "UID: " + bytesToHex(mNdef.getTag().getId()) + "\n";
+            // get the techlist = support technoligies of the tag, e.g. android.nfc.tech.Nfca
+            ndefContent = ndefContent + "TecList: " + Arrays.toString(mNdef.getTag().getTechList()) + "\n";
+
+            if (ndefRecordsCount > 0) {
+                String ndefText = "";
+                for (int i = 0; i < ndefRecordsCount; i++) {
+                    short ndefTnf = record[i].getTnf();
+
+                    switch (ndefTnf) {
+                        case NdefRecord.TNF_EMPTY: {
+                            ndefContent = ndefContent + "\n" + "rec: " + i +
+                                    " TNF: " + ndefTnf + " (0 TNF_EMPTY)";
+                            break;
+                        }
+                        case NdefRecord.TNF_WELL_KNOWN: {
+                            ndefContent = ndefContent + "\n" + "rec: " + i +
+                                    " TNF: " + ndefTnf + " (1 TNF_WELL_KNOWN)";
+                            break;
+                        }
+                        case NdefRecord.TNF_MIME_MEDIA: {
+                            ndefContent = ndefContent + "\n" + "rec: " + i +
+                                    " TNF: " + ndefTnf + " (2 TNF_MIME_MEDIA)";
+                            break;
+                        }
+                        case NdefRecord.TNF_ABSOLUTE_URI: {
+                            ndefContent = ndefContent + "\n" + "rec: " + i +
+                                    " TNF: " + ndefTnf + " (3 TNF_ABSOLUTE_URI)";
+                            break;
+                        }
+                        case NdefRecord.TNF_EXTERNAL_TYPE: {
+                            ndefContent = ndefContent + "\n" + "rec: " + i +
+                                    " TNF: " + ndefTnf + " (4 TNF_EXTERNAL_TYPE)";
+                            break;
+                        }
+                        case NdefRecord.TNF_UNKNOWN: {
+                            ndefContent = ndefContent + "\n" + "rec: " + i +
+                                    " TNF: " + ndefTnf + " (5 TNF_UNKNOWN)";
+                            break;
+                        }
+                        case NdefRecord.TNF_UNCHANGED: {
+                            ndefContent = ndefContent + "\n" + "rec: " + i +
+                                    " TNF: " + ndefTnf + " (6 TNF_UNCHANGED)";
+                            break;
+                        }
+                        default: {
+                            ndefContent = ndefContent + "\n" + "rec: " + i +
+                                    " TNF: " + ndefTnf + " (undefined)";
+                            break;
+                        }
+                    }
+
+                    byte[] ndefType = record[i].getType();
+                    byte[] ndefPayload = record[i].getPayload();
+
+                    ndefContent = ndefContent + "\n" + "rec " + i + " inf: " + ndefTnf +
+                            " type: " + bytesToHex(ndefType) +
+                            " payload: " + bytesToHex(ndefPayload) +
+                            " \n" + new String(ndefPayload) + " \n";
+                    String finalNdefContent = ndefContent;
+                    runOnUiThread(() -> {
+                        nfcContentRaw.setText(finalNdefContent);
+                        System.out.println(finalNdefContent);
+                    });
+
+                    // here we are trying to parse the content
+                    // Well known type - Text
+                    if (ndefTnf == NdefRecord.TNF_WELL_KNOWN &&
+                            Arrays.equals(ndefType, NdefRecord.RTD_TEXT)) {
+                        ndefText = ndefText + "\n" + "rec: " + i +
+                                " Well known Text payload\n" + new String(ndefPayload) + " \n";
+                        ndefText = ndefText + Utils.parseTextrecordPayload(ndefPayload) + " \n";
+                    }
+                    // Well known type - Uri
+                    if (ndefTnf == NdefRecord.TNF_WELL_KNOWN &&
+                            Arrays.equals(ndefType, NdefRecord.RTD_URI)) {
+                        ndefText = ndefText + "\n" + "rec: " + i +
+                                " Well known Uri payload\n" + new String(ndefPayload) + " \n";
+                        ndefText = ndefText + Utils.parseUrirecordPayload(ndefPayload) + " \n";
+                    }
+
+                    // TNF 2 Mime Media
+                    if (ndefTnf == NdefRecord.TNF_MIME_MEDIA) {
+                        ndefText = ndefText + "\n" + "rec: " + i +
+                                " TNF Mime Media  payload\n" + new String(ndefPayload) + " \n";
+                        ndefText = ndefText + "TNF Mime Media  type\n" + new String(ndefType) + " \n";
+                    }
+                    // TNF 4 External type
+                    if (ndefTnf == NdefRecord.TNF_EXTERNAL_TYPE) {
+                        ndefText = ndefText + "\n" + "rec: " + i +
+                                " TNF External type payload\n" + new String(ndefPayload) + " \n";
+                        ndefText = ndefText + "TNF External type type\n" + new String(ndefType) + " \n";
+                    }
+                    String finalNdefText = ndefText;
+                    runOnUiThread(() -> {
+                        nfcContentParsed.setText(finalNdefText);
+                        System.out.println(finalNdefText);
+                    });
+                } // for
+            }
+        } else {
+            runOnUiThread(() -> {
+                Toast.makeText(getApplicationContext(),
+                        "mNdef is null",
+                        Toast.LENGTH_SHORT).show();
+            });
+        }*/
     }
 
     public static String bytesToHex(byte[] bytes) {
