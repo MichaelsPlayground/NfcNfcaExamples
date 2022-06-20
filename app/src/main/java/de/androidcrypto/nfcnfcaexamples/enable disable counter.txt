@@ -1,0 +1,57 @@
+https://stackoverflow.com/a/43714061/8166854
+
+Enable/Disable counter for NTAG213
+Ask Question
+Asked 5 years, 1 month ago
+Modified 5 years, 1 month ago
+Viewed 874 times
+
+1
+
+
+    MifareUltralight mifareUltralight = MifareUltralight.get(tag);
+    byte[] toggleCounterCommand = new byte[]{(byte)0xA2, // NTAG213 command to write
+                                    (byte)0x2A,  // page 42(dec) 2A(hex)
+                                     (byte)___};// not sure what to put here.
+The data sheet for NTAG213 says that the 0th byte of page 42 has the access information.
+
+The 0th byte is structured in the following way :
+
+ 7       6         5        *4*            3          2  1  0
+PROT  CFGLCK   RFUI    *NFC_CNT_EN*  NFC_CNT_PWD_PROT   AUTHLIM
+Setting the 4th bit to 0 or 1 should enable or disable the counter. But I'm not sure how to set the 4th bit while writing on the tag.
+
+Counter, Read & Write
+Context for anyone coming to this in the future:
+
+NTAG21x features a NFC counter function. This function enables NTAG21x to automatically increase the 24 bit counter value, triggered by the first valid
+
+READ command or
+FAST-READ command
+after the NTAG21x tag is powered by an RF field. Once the NFC counter has reached the maximum value of FF FF FF hex, the NFC counter value will not change any more. The NFC counter is enabled or disabled with the NFC_CNT_EN bit (see Section 8.5.7) http://www.nxp.com/documents/data_sheet/NTAG213_215_216.pdf.
+My understanding is that you're on the right track with writing to the tag, you want to use the  transceive method to update that bit, but you're not sure what data to write in order to achieve this . Note that MifraUltralight.transceieve(byte[]) is equivalent to connecting to this tag via NfcA and calling transceive(byte[]).
+
+An important thing to note is that "Applications must only send commands that are complete bytes" (from Android docs) so we must update that entire byte. However, we want to write to the tag, which only supports a payload of 4 bytes (1 page) so we will be rewriting the whole page.
+
+This is where my experience starts to break down a little bit, but I would suggest an approach of:
+
+Read page 42, copy the bytes to a buffer
+Write those copied bytes to page 42, but update the counter bit first
+Doing step 1:
+
+NfcA transaction = NfcA.get(tag);
+transaction.connect(); // error handle
+byte cmdRead = (byte)0x30;
+byte page = (byte)(0x42 & 0xff); // AND to make sure it is the correct size
+byte[] command = new byte[] {cmdRead, page};
+byte[] page42 = nfcAtransaction.transceive(command); // error handle
+
+byte mask = 0b00010000; // 3rd bit, or should it be 4th?
+byte newData = page42[0] | mask;
+Doing step 2:
+
+byte cmdWrite = (byte)0xA2;
+byte page = (byte)(42 & 0xff);
+byte[] command = new byte[] { cmdWrite, page, newData, page42[1], page42[2], page42[3]};
+byte[] result = nfcA.transceive(command);
+Completely untested, but I hope this helps.
