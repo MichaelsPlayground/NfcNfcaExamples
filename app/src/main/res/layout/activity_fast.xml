@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    tools:context=".FastActivity">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -26,22 +26,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:padding="10dp"
-            android:text="When a tag is discovered all NCFA data on the tag is read and displayed."
+            android:text="When a tag is discovered all NCFA data on the tag is read with FAST_READ mode displayed."
             android:textAlignment="center"
             android:textSize="16sp"
             android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/btnMainNfcaFastRead"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginTop="16dp"
-            android:layout_marginEnd="8dp"
-            android:text="read the tag with fast mode" />
-
         <TextView
-            android:id="@+id/tvMainNfcaContentRaw"
+            android:id="@+id/tvFastNfcaContentRaw"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
@@ -51,7 +42,7 @@
             android:textSize="16sp" />
 
         <TextView
-            android:id="@+id/tvMainNfcaContentParsed"
+            android:id="@+id/tvFastNfcaContentParsed"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"

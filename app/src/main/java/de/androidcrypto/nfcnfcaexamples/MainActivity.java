@@ -11,6 +11,8 @@ import android.os.Bundle;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.provider.Settings;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -21,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 
 public class MainActivity extends AppCompatActivity implements NfcAdapter.ReaderCallback {
 
+    Button fastReadMode;
     TextView nfcContentParsed, nfcContentRaw;
 
     private NfcAdapter mNfcAdapter;
@@ -29,9 +32,19 @@ public class MainActivity extends AppCompatActivity implements NfcAdapter.Reader
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        fastReadMode = findViewById(R.id.btnMainNfcaFastRead);
         nfcContentParsed = findViewById(R.id.tvMainNfcaContentParsed);
         nfcContentRaw = findViewById(R.id.tvMainNfcaContentRaw);
         mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
+
+        fastReadMode.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(MainActivity.this, FastActivity.class);
+                startActivity(intent);
+            }
+        });
+
     }
 
     // This method is run in another thread when a card is discovered
@@ -70,6 +83,7 @@ public class MainActivity extends AppCompatActivity implements NfcAdapter.Reader
                 String ntagVersion = NfcIdentifyNtag.checkNtagType(nfcA, tag.getId());
                 if (ntagVersion.equals("0")) {
                     runOnUiThread(() -> {
+                        nfcContentRaw.setText("NFC tag is NOT of type NXP NTAG213/215/216");
                         Toast.makeText(getApplicationContext(),
                                 "NFC tag is NOT of type NXP NTAG213/215/216",
                                 Toast.LENGTH_SHORT).show();
