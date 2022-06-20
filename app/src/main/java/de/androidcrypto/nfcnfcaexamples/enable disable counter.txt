@@ -55,3 +55,82 @@ byte page = (byte)(42 & 0xff);
 byte[] command = new byte[] { cmdWrite, page, newData, page42[1], page42[2], page42[3]};
 byte[] result = nfcA.transceive(command);
 Completely untested, but I hope this helps.
+
+
+https://seritag.com/learn/tech/how-to-encode-nfc-tags
+...
+Additional encoding data options (optional)
+
+Description
+There are two basic ways of encoding a web link onto a tag. The first is a 'Smart Poster' type which
+typically stores the link and a title. The second is a URI type which just stores the link.
+
+There's very little point in storing a title - it's never* used under normal circumstances. *never
+means that Seritag have never come across a use case for it ever ! All it does it take up memeory
+space which, if you are using a smaller tag such as a NTAG210, may mean you run out of space.
+
+In short - don't add a title.
+
+URI type
+Technically, a 'link' in this instance is not just a web link (generally defined as URL) which works
+over http(s)://. It can also mean any link protocol including mailto, ftp, etc.
+
+Additionally, it's possible not to use a preset 'URI identifier' definition and enter an entire URI.
+In most instances, the NFC reader will understand the best it can. Which, in reality, in most cases
+other than a web address means that you will have no idea how it will react or if it will react at all.
+
+Note that mobile phones will (in all cases Seritag have experienced) understand a web address encoding
+without a URI identifer. There's no real harm in encoding like this but you do need 7 or 8 additional
+memory bytes.
+
+Add Tag UID (mirror)
+Each NFC tag has a unique (if the tag is genuine) 7 byte ID hard coded into the memory. It can't (on
+a genuine NXP chip) be changed.
+
+Some phones can't actually scan this as they only can read - or perhaps more accurately present -
+the 'user memory' area. Therefore, in some cases, it makes sense to 'mirror' this UID into a URL.
+
+For example, if the UID was AABBCCDD112233 and your URL was https://seritag.com?tag=22, you could
+mirror the UID onto the URL such as 'https://seritag.com?tag=22&uid=AABBCCDD112233'.
+
+Add Interaction Counter (mirror)
+Most newer NFC chips have an in-built counter which records how many times the tag has been scanned.
+This can be useful in a number of applications from security to marketing.
+
+The counter is stored in a part of the chip's memory that some phones can't readily get to without a
+specific App - and some phones don't offer access at all. So, the count can be mirrored dynamically
+into the URL.
+
+For example, your URL might be 'https://seritag.com?count=' and the count will be added to the end.
+First scan it would be count=1, then on the second scan it would be count=2 and so on.
+
+For developers, remember that this is the number of times the tag has been scanned, not the number of
+times the user has visited the link. The two are definitely not the same.
+
+Add NTAG213TT Message (mirror)
+NXP recently released a new NFC chip called the NTAG213 Tag Tamper or NTAG213 TT. This is a clever
+little chip which has an extra couple of terminals on the chip.
+
+A loop of wire (separate to the NFC antenna) can be attached and the chip can detect if the loop has
+been broken at any point. Very clever.
+
+This change in 'status' is recorded in the chips memory and can be accessed by a special App or, in
+the case of selecting this option, can be added to the URL. For example, an unbroken URL might show
+https://seritag.com?broken=00000000 and a broken/tampered tag will magically change this URL to
+https://seritag.com?broken=FFFFFFFF.
+
+It's a quick, simple way for anyone with an NFC phone to detect if a tag has been messed with.
+
+Enable SUN Message
+This is complicated and works only with the latest authentication NFC tags such as the NTAG424 and
+NTAG413. It has a feature whereby each time the tag is tapped it can generate a new unique code - in
+a similar way to those online banking keycode generators.
+
+This code, 'Secure Unique NFC', can be added to a URL automatically each time the tag is scanned.
+This, essentially, enables a level of App free tag authentication. It's extremely powerful and probably
+the best solution yet to open access (App free) NFC tag authentication.
+
+There aren't that many NTAG413 or NTAG424 tags around at the moment but it's a very strong step in the
+right direction. Note that this feature requires specialist technology such as our Ixkio platform to
+verify the authenticity of the SUN message.
+
