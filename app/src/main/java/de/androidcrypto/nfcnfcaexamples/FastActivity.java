@@ -141,19 +141,9 @@ public class FastActivity extends AppCompatActivity implements NfcAdapter.Reader
                             // nfcaContent = nfcaContent + "successful reading " + response.length + " bytes\n";
                             // nfcaContent = nfcaContent + bytesToHex(response) + "\n";
                             // copy the response to the ntagMemory
-                            // beware that the last response recieves to many bytes
-                            // NTAG216 does have 888 bytes memory but we already read
-                            // 55 * 16 = 880 bytes, so we should copy 8 bytes only in the last round
                             //nfcaContent = nfcaContent + "number of bytes read: : " + response.length + "\n";
                             //nfcaContent = nfcaContent + "response:\n" + bytesToHex(response) + "\n";
                             System.arraycopy(response, 0, ntagMemory, (nfcaMaxTranceive4ByteLength * i), nfcaMaxTranceive4ByteLength);
-/*
-                            if (i < nfcaNrOfFullReadings) {
-                                System.arraycopy(response, 0, ntagMemory, (nfcaMaxTranceive4ByteLength * i), nfcaMaxTranceive4ByteLength);
-                            } else {
-                                System.arraycopy(response, 0, ntagMemory, (nfcaMaxTranceive4ByteLength * nfcaNrOfFullReadings), (ntagMemoryBytes - nfcaTotalFullReadingBytes));
-                            }
-*/
                         }
                     } // for
 
