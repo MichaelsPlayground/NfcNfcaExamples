@@ -16,7 +16,15 @@ Rev. 3.2 — 2 June 2015 Product data sheet
 
 https://www.nxp.com/docs/en/data-sheet/NTAG213_215_216.pdf
 
-User memory is in pages 04 (04x) up to 225 (E0x) = 222 pages of 4 bytes of data
+User memory is in pages 04 (04x) up to 225 (E1x) = 222 pages of 4 bytes of data
+
+Data pages
+```plaintext
+Pages 04h to 27h (04 -  39 =  36 pages = 144 bytes) for NTAG213, 
+pages 04h to 81h (04 - 129 = 126 pages = 504 bytes) for NTAG215 and  
+pages 04h to E1h (04 - 225 = 222 pages = 888 bytes) for NTAG216 
+are the user memory read/write area.
+```
 
 NTAG21x command overview
 ```plaintext

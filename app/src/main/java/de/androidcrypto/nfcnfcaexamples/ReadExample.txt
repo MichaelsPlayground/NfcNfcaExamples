@@ -1,0 +1,578 @@
+source: https://chowdera.com/2021/06/20210613070904965a.html
+
+Read NFCA format data
+2021-06-13 07:09:19 【bbsmax】
+How to read data ？
+
+Tag tagFromIntent = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+
+NfcA nfcA = NfcA.get(tag);
+   nfcA.connect();
+
+byte[] SELECT = {(byte) 0x30, (byte) 0x05};// I read it NFC The card uses NTAG216 Chip , The instruction parameters here are based on its datasheet It's a description of .
+
+byte[] result = nfcA.transceive(SELECT);// This will return to 16 Bytes of data , There will be differences depending on the chip
+
+The fast read / write command of the chip is 0x3A, You can specify a range of pages to read , When using the fast read / write command , Found that the read range exceeds 70 byte android You're going to report a mistake , So the maximum number of reads per time is used 64 Byte way .
+
+package com.yorkg.android.nfc;
+
+import java.io.IOException;
+
+import java.io.UnsupportedEncodingException;
+
+import java.util.ArrayList;
+
+import java.util.Arrays;
+
+import android.app.Activity;
+
+import android.app.AlertDialog;
+
+import android.app.PendingIntent;
+
+import android.content.DialogInterface;
+
+import android.content.Intent;
+
+import android.content.IntentFilter;
+
+import android.nfc.NfcAdapter;
+
+import android.nfc.Tag;
+
+import android.nfc.tech.MifareClassic;
+
+import android.nfc.tech.NfcA;
+
+import android.os.Bundle;
+
+import android.view.View;
+
+import android.view.View.OnClickListener;
+
+import android.view.Window;
+
+import android.widget.Button;
+
+import android.widget.EditText;
+
+import android.widget.Toast;
+
+import com.yorkg.android.nfc.dataobject.mifare.MifareBlock;
+
+import com.yorkg.android.nfc.dataobject.mifare.MifareClassCard;
+
+import com.yorkg.android.nfc.dataobject.mifare.MifareSector;
+
+import com.yorkg.android.nfc.util.Converter;
+
+public class MyFirstNFCDemoActivity extends Activity {
+
+	/** Called when the activity is first created. */
+
+	private Button clearBtn = null;
+
+	private EditText sealCompanyName = null;
+
+	private EditText sealName = null;
+
+	private EditText sealNumber = null;
+
+	private EditText sealTaxId = null;
+
+	private EditText sealCode = null;
+
+	private EditText sealMaterial = null;
+
+	private EditText sealSize = null;
+
+	private EditText companyMadedName = null;
+
+	private EditText companyMadedTime = null;
+
+	private EditText companyCheckedName = null;
+
+	private NfcAdapter mAdapter;
+
+	private PendingIntent mPendingIntent;
+
+	private IntentFilter[] mFilters;
+
+	private String[][] mTechLists;
+
+	private static final int AUTH = 1;
+
+	private static final int EMPTY_BLOCK_0 = 2;
+
+	private static final int EMPTY_BLOCK_1 = 3;
+
+	private static final int NETWORK = 4;
+
+	private static final int NFC_OFF = 5;
+
+	private static final int NFC_TYPE_ERROR = 6;
+
+	private static final String TAG = "NfcDemo";
+
+	private static boolean READ_LOCK = false;
+
+	private void initView(){
+
+		sealCompanyName = (EditText) this.findViewById(R.id.edittext_seal_company_name);
+
+		sealName = (EditText) this.findViewById(R.id.edittext_seal_name);
+
+		sealNumber = (EditText) this.findViewById(R.id.edittext_seal_number);
+
+		sealTaxId = (EditText) this.findViewById(R.id.edittext_tax_id);
+
+		sealCode = (EditText) this.findViewById(R.id.edittext_code);
+
+		sealMaterial = (EditText) this.findViewById(R.id.edittext_seal_material);
+
+		sealSize = (EditText) this.findViewById(R.id.edittext_seal_size);
+
+		companyMadedName = (EditText) this.findViewById(R.id.edittext_company_maded_name);
+
+		companyMadedTime = (EditText) this.findViewById(R.id.edittext_company_maded_time);
+
+		companyCheckedName = (EditText) this.findViewById(R.id.edittext_company_checked_name);
+
+		clearBtn = (Button) this.findViewById(R.id.clear_btn);
+
+		clearBtn.setOnClickListener(new OnClickListener() {
+
+			@Override
+
+			public void onClick(View v) {
+
+				// TODO Auto-generated method stub
+
+				cleanData();
+
+			}
+
+		});
+
+	}
+
+	// Clear data information
+
+	private void cleanData(){
+
+		sealCompanyName.setText("");
+
+		sealName.setText("");
+
+		sealNumber.setText("");
+
+		sealTaxId.setText("");
+
+		sealCode.setText("");
+
+		sealMaterial.setText("");
+
+		sealSize.setText("");
+
+		companyMadedName.setText("");
+
+		companyMadedTime.setText("");
+
+		companyCheckedName.setText("");
+
+	}
+
+	@Override
+
+	public void onCreate(Bundle savedState) {
+
+		super.onCreate(savedState);
+
+		requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+		setContentView(R.layout.main);
+
+		initView();
+
+		mAdapter = NfcAdapter.getDefaultAdapter(this);
+
+		mPendingIntent = PendingIntent.getActivity(this, 0, new Intent(this,getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), 0);
+
+		// Setup an intent filter for all MIME based dispatches
+
+		IntentFilter ndef = new IntentFilter(NfcAdapter.ACTION_TECH_DISCOVERED);
+
+//		try {
+
+//			ndef.addDataType("*/*");
+
+//		} catch (MalformedMimeTypeException e) {
+
+//			throw new RuntimeException("fail", e);
+
+//		}
+
+		mFilters = new IntentFilter[] { ndef, };
+
+		mTechLists = new String[][] { new String[] { MifareClassic.class
+
+				.getName() } , new String[] {NfcA.class.getName()}};
+
+		// Get whether to detect ACTION_TECH_DISCOVERED Trigger
+
+		if (NfcAdapter.ACTION_TECH_DISCOVERED.equals(getIntent().getAction())) {
+
+			// Handle the intent
+
+			resolveIntentNfcA(getIntent());
+
+		}
+
+	}
+
+	@Override
+
+	public void onResume() {
+
+		super.onResume();
+
+		if (mAdapter!=null && (!mAdapter.isEnabled())) {
+
+			showAlert(NFC_OFF, getString(R.string.error5));
+
+		}
+
+		if (mAdapter!=null) {
+
+			mAdapter.enableForegroundDispatch(this, mPendingIntent, mFilters,
+
+					mTechLists);
+
+		}
+
+	}
+
+	@Override
+
+	public void onNewIntent(Intent intent) {
+
+		resolveIntentNfcA(intent);
+
+	}
+
+	@Override
+
+	public void onPause() {
+
+		super.onPause();
+
+		if (mAdapter!=null){
+
+			mAdapter.disableForegroundDispatch(this);
+
+		}
+
+	}
+
+	void resolveIntentNfcA(Intent intent){
+
+		if (READ_LOCK==false){
+
+			READ_LOCK = true;
+
+			Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+
+			if (NfcAdapter.ACTION_TECH_DISCOVERED.equals(intent.getAction()))
+
+			{
+
+			    Tag tagFromIntent = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+
+			    MyLog.i(TAG, Arrays.toString(tagFromIntent.getTechList()));
+
+			    try
+
+			    {
+
+			    	NfcA nfcA = NfcA.get(tag);
+
+			    	nfcA.connect();
+
+			        byte[] SELECT = {
+
+			        	(byte) 0x30,
+
+			        	(byte) 0x05,
+
+			        };
+
+			        byte[] result = nfcA.transceive(SELECT);
+
+			        int data_len = ((result[0]&0x0f)<<8)+((result[1]&0xff));
+
+			        MyLog.i(TAG, " Whether data has been written "+result[0]+", Write data length ："+data_len);
+
+			        byte[] buf_res = new byte[data_len/2+4];
+
+			        if (result[0]!=0 && data_len!=0){
+
+			        	int count = data_len/2/64;
+
+			        	int i = 0;
+
+			        	for (i=0; i<count; i++){
+
+//			        	// Reading data
+
+			        	byte[] DATA_READ = {
+
+					            (byte) 0x3A,
+
+					            (byte) (0x06+i*(64/4)),
+
+					            (byte) (0x06+(i+1)*(64/4))
+
+//					            (byte) (5+data_len/8)
+
+					        };
+
+			        	byte[] data_res = nfcA.transceive(DATA_READ);
+
+			        	System.arraycopy(data_res, 0, buf_res, i*64, 64);
+
+			        	MyLog.i(TAG, " Read the card successfully ");
+
+			        	}
+
+			        	if (((data_len/2)%(64))!=0){
+
+			        	byte[]DATA_READ = {
+
+					            (byte) 0x3A,
+
+					            (byte) (0x06+i*(64/4)),
+
+					            (byte) (((0x06+i*(64/4))+(data_len/2/4)%(64/4))-1)
+
+//					            (byte) (5+data_len/8)
+
+					        };
+
+			        	byte[] data_res = nfcA.transceive(DATA_READ);
+
+			        	System.arraycopy(data_res, 0, buf_res, i*64, (data_len/2)%64);
+
+			        	MyLog.i(TAG, " Read the card successfully 2");
+
+			        	}
+
+						String res = gb2312ToString(buf_res);
+
+						MyLog.i(TAG, "stringBytes:"+res);
+
+						showNFCInfo(res);
+
+			        }
+
+			    }catch(IOException e){
+
+			    	e.printStackTrace();
+
+			    	cleanData();
+
+			    	MyLog.e(TAG, " Card reading failed ");
+
+			    }catch (Exception e) {
+
+					// TODO: handle exception
+
+			    	e.printStackTrace();
+
+			    	showAlert(NFC_TYPE_ERROR, getString(R.string.error6));
+
+				}finally{
+
+			    }
+
+			}
+
+			READ_LOCK = false;
+
+		}
+
+	}
+
+	// Convert data to GB2312
+
+	private String gb2312ToString(byte[] data) {
+
+	    String str = null;
+
+	    try {
+
+	           str = new String(data, "gb2312");//"utf-8"
+
+	    } catch (UnsupportedEncodingException e) {
+
+	    }
+
+	    return str;
+
+	 }
+
+	// Display string parsing to the page
+
+	private void showNFCInfo(String str){
+
+		String[] contents_temp = str.split("\\|");
+
+		String[] contents = new String[contents_temp.length];
+
+		int i;
+
+		for (i = 0; i < contents_temp.length; i++) {
+
+			contents[i]=contents_temp[i];
+
+		}
+
+		// There are 10 term , So here we just initialize to the second 10 term
+
+		for (int j=i; j<10; j++){
+
+			contents[j]="";
+
+		}
+
+		if (contents[0]!=null){
+
+			sealCompanyName.setText(contents[0]);
+
+		}
+
+		if (contents[1]!=null){
+
+			sealName.setText(contents[1]);
+
+		}
+
+		if (contents[2]!=null){
+
+			sealNumber.setText(contents[2]);
+
+		}
+
+		if (contents[3]!=null){
+
+			sealTaxId.setText(contents[3]);
+
+		}
+
+		if (contents[4]!=null){
+
+			sealCode.setText(contents[4]);
+
+		}
+
+		if (contents[5]!=null){
+
+			sealMaterial.setText(contents[5]);
+
+		}
+
+		if (contents[6]!=null){
+
+			sealSize.setText(contents[6]);
+
+		}
+
+		if (contents[7]!=null){
+
+			companyMadedName.setText(contents[7]);
+
+		}
+
+		if (contents[8]!=null){
+
+			companyMadedTime.setText(contents[8]);
+
+		}
+
+		if (contents[9]!=null){
+
+			companyCheckedName.setText(contents[9]);
+
+		}
+
+	}
+
+	private void showAlert(int alertCase,String str) {
+
+		// prepare the alert box
+
+		AlertDialog.Builder alertbox = new AlertDialog.Builder(this);
+
+		switch (alertCase) {
+
+		case AUTH:// Card Authentication Error
+
+			alertbox.setMessage(getString(R.string.error1));
+
+			break;
+
+		case EMPTY_BLOCK_0: // Block 0 Empty
+
+			alertbox.setMessage(getString(R.string.error2));
+
+			break;
+
+		case EMPTY_BLOCK_1:// Block 1 Empty
+
+			alertbox.setMessage(getString(R.string.error3));
+
+			break;
+
+		case NETWORK: // Communication Error
+
+			alertbox.setMessage(getString(R.string.error4));
+
+			break;
+
+		case NFC_OFF:
+
+			alertbox.setMessage(getString(R.string.error5));
+
+			break;
+
+		case NFC_TYPE_ERROR:
+
+			alertbox.setMessage(getString(R.string.error6));
+
+		}
+
+		// set a positive/yes button and create a listener
+
+		alertbox.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+
+			// Save the data from the UI to the database - already done
+
+			public void onClick(DialogInterface arg0, int arg1) {
+
+				clearFields();
+
+			}
+
+		});
+
+		// display box
+
+		alertbox.show();
+
+	}
+
+	private void clearFields() {
+
+	}
+
+}
