@@ -73,11 +73,7 @@ public class WriteActivity extends AppCompatActivity implements NfcAdapter.Reade
             nfcA = NfcA.get(tag);
 
             if (nfcA != null) {
-                runOnUiThread(() -> {
-                    Toast.makeText(getApplicationContext(),
-                            "NFC tag is Nfca compatible",
-                            Toast.LENGTH_SHORT).show();
-                });
+                writeToUiToast("NFC tag is Nfca compatible");
 
                 // Make a Sound
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -92,24 +88,20 @@ public class WriteActivity extends AppCompatActivity implements NfcAdapter.Reade
                 // check that the tag is a NTAG213/215/216 manufactured by NXP - stop if not
                 String ntagVersion = NfcIdentifyNtag.checkNtagType(nfcA, tag.getId());
                 if (ntagVersion.equals("0")) {
-                    runOnUiThread(() -> {
-                        nfcContentRaw.setText("NFC tag is NOT of type NXP NTAG213/215/216");
-                        Toast.makeText(getApplicationContext(),
-                                "NFC tag is NOT of type NXP NTAG213/215/216",
-                                Toast.LENGTH_SHORT).show();
-                    });
+                    writeToUiAppend(nfcContentRaw, "NFC tag is NOT of type NXP NTAG213/215/216");
+                    writeToUiToast("NFC tag is NOT of type NXP NTAG213/215/216");
                     return;
                 }
 
                 int nfcaMaxTranceiveLength = nfcA.getMaxTransceiveLength(); // important for the readFast command
                 int ntagPages = NfcIdentifyNtag.getIdentifiedNtagPages();
                 int ntagMemoryBytes = NfcIdentifyNtag.getIdentifiedNtagMemoryBytes();
-                String tagIdString = getDec(tag.getId());
+                String tagIdString = Utils.getDec(tag.getId());
                 String nfcaContent = "raw data of " + NfcIdentifyNtag.getIdentifiedNtagType() + "\n" +
                         "number of pages: " + ntagPages +
                         " total memory: " + ntagMemoryBytes +
                         " bytes\n" +
-                        "tag ID: " + bytesToHex(NfcIdentifyNtag.getIdentifiedNtagId()) + "\n" +
+                        "tag ID: " + Utils.bytesToHex(NfcIdentifyNtag.getIdentifiedNtagId()) + "\n" +
                         "tag ID: " + tagIdString + "\n";
                 nfcaContent = nfcaContent + "maxTranceiveLength: " + nfcaMaxTranceiveLength + " bytes\n";
                 // read the complete memory depending on ntag type
@@ -125,19 +117,15 @@ public class WriteActivity extends AppCompatActivity implements NfcAdapter.Reade
                     int dataPages = dataLength / 4;
                     int dataPagesMod = dataLength % 4; // if there is a remainder we need to use a new page to write
                     nfcaContent = nfcaContent + "data length: " + dataLength + "\n";
-                    nfcaContent = nfcaContent + "data: " + bytesToHex(dataByte) + "\n";
+                    nfcaContent = nfcaContent + "data: " + Utils.bytesToHex(dataByte) + "\n";
                     nfcaContent = nfcaContent + "dataPages: " + dataPages + "\n";
                     nfcaContent = nfcaContent + "dataPagesMod: " + dataPagesMod + "\n";
 
                     // check that the data is fitting on the tag
                     if (dataLength > ntagMemoryBytes) {
-                        runOnUiThread(() -> {
-                            nfcContentRaw.setText("data in InputField is too long for tag");
-                            System.out.println("data in InputField is too long for tag");
-                            Toast.makeText(getApplicationContext(),
-                                    "data in InputField is too long for tag",
-                                    Toast.LENGTH_SHORT).show();
-                        });
+                        writeToUiAppend(nfcContentRaw, "data in InputField is too long for tag");
+                        writeToUiToast("data in InputField is too long for tag");
+                        System.out.println("data in InputField is too long for tag");
                         return;
                     }
                     nfcaContent = nfcaContent + "writing full pages" + "\n";
@@ -153,27 +141,23 @@ public class WriteActivity extends AppCompatActivity implements NfcAdapter.Reade
                                 dataByte[2 + (i * 4)],
                                 dataByte[3 + (i * 4)]
                         };
-                        nfcaContent = nfcaContent + "command: " + bytesToHex(commandW) + "\n";
+                        nfcaContent = nfcaContent + "command: " + Utils.bytesToHex(commandW) + "\n";
                         response = nfcA.transceive(commandW);
                         if (response == null) {
                             // either communication to the tag was lost or a NACK was received
                             // Log and return
                             nfcaContent = nfcaContent + "ERROR: null response";
                             String finalNfcaText = nfcaContent;
-                            runOnUiThread(() -> {
-                                nfcContentRaw.setText(finalNfcaText);
-                                System.out.println(finalNfcaText);
-                            });
+                            writeToUiAppend(nfcContentRaw, finalNfcaText);
+                            System.out.println(finalNfcaText);
                             return;
                         } else if ((response.length == 1) && ((response[0] & 0x00A) != 0x00A)) {
                             // NACK response according to Digital Protocol/T2TOP
                             // Log and return
-                            nfcaContent = nfcaContent + "ERROR: NACK response: " + bytesToHex(response);
+                            nfcaContent = nfcaContent + "ERROR: NACK response: " + Utils.bytesToHex(response);
                             String finalNfcaText = nfcaContent;
-                            runOnUiThread(() -> {
-                                nfcContentRaw.setText(finalNfcaText);
-                                System.out.println(finalNfcaText);
-                            });
+                            writeToUiAppend(nfcContentRaw, finalNfcaText);
+                            System.out.println(finalNfcaText);
                             return;
                         } else {
                             // success: response contains ACK or actual data
@@ -181,7 +165,7 @@ public class WriteActivity extends AppCompatActivity implements NfcAdapter.Reade
                             // nfcaContent = nfcaContent + bytesToHex(response) + "\n";
                             // copy the response to the ntagMemory
                             //nfcaContent = nfcaContent + "number of bytes read: : " + response.length + "\n";
-                            nfcaContent = nfcaContent + "response:\n" + bytesToHex(response) + "\n";
+                            nfcaContent = nfcaContent + "response:\n" + Utils.bytesToHex(response) + "\n";
                             //System.arraycopy(response, 0, ntagMemory, (nfcaMaxTranceive4ByteLength * i), nfcaMaxTranceive4ByteLength);
                         }
 
@@ -228,27 +212,23 @@ public class WriteActivity extends AppCompatActivity implements NfcAdapter.Reade
                         };
                     }
 
-                    nfcaContent = nfcaContent + "command: " + bytesToHex(commandW) + "\n";
+                    nfcaContent = nfcaContent + "command: " + Utils.bytesToHex(commandW) + "\n";
                     response = nfcA.transceive(commandW);
                     if (response == null) {
                         // either communication to the tag was lost or a NACK was received
                         // Log and return
                         nfcaContent = nfcaContent + "ERROR: null response";
                         String finalNfcaText = nfcaContent;
-                        runOnUiThread(() -> {
-                            nfcContentRaw.setText(finalNfcaText);
-                            System.out.println(finalNfcaText);
-                        });
+                        writeToUiAppend(nfcContentRaw, finalNfcaText);
+                        System.out.println(finalNfcaText);
                         return;
                     } else if ((response.length == 1) && ((response[0] & 0x00A) != 0x00A)) {
                         // NACK response according to Digital Protocol/T2TOP
                         // Log and return
-                        nfcaContent = nfcaContent + "ERROR: NACK response: " + bytesToHex(response);
+                        nfcaContent = nfcaContent + "ERROR: NACK response: " + Utils.bytesToHex(response);
                         String finalNfcaText = nfcaContent;
-                        runOnUiThread(() -> {
-                            nfcContentRaw.setText(finalNfcaText);
-                            System.out.println(finalNfcaText);
-                        });
+                        writeToUiAppend(nfcContentRaw, finalNfcaText);
+                        System.out.println(finalNfcaText);
                         return;
                     } else {
                         // success: response contains ACK or actual data
@@ -256,83 +236,69 @@ public class WriteActivity extends AppCompatActivity implements NfcAdapter.Reade
                         // nfcaContent = nfcaContent + bytesToHex(response) + "\n";
                         // copy the response to the ntagMemory
                         //nfcaContent = nfcaContent + "number of bytes read: : " + response.length + "\n";
-                        nfcaContent = nfcaContent + "response:\n" + bytesToHex(response) + "\n";
+                        nfcaContent = nfcaContent + "response:\n" + Utils.bytesToHex(response) + "\n";
                         //System.arraycopy(response, 0, ntagMemory, (nfcaMaxTranceive4ByteLength * i), nfcaMaxTranceive4ByteLength);
                     }
 
-            } catch(TagLostException e){
-                // Log and return
-                nfcaContent = nfcaContent + "ERROR: Tag lost exception";
-                String finalNfcaText = nfcaContent;
-                runOnUiThread(() -> {
-                    nfcContentRaw.setText(finalNfcaText);
+                } catch (TagLostException e) {
+                    // Log and return
+                    nfcaContent = nfcaContent + "ERROR: Tag lost exception";
+                    String finalNfcaText = nfcaContent;
+                    writeToUiAppend(nfcContentRaw, finalNfcaText);
                     System.out.println(finalNfcaText);
-                });
-                return;
-            } catch(IOException e){
+                    return;
+                } catch (IOException e) {
 
-                e.printStackTrace();
+                    e.printStackTrace();
 
+                }
+                String finalNfcaRawText = nfcaContent;
+                String finalNfcaText = "parsed content:\n" + new String(ntagMemory, StandardCharsets.US_ASCII);
+                writeToUiAppend(nfcContentRaw, finalNfcaText);
+                writeToUiAppend(nfcContentParsed, finalNfcaText);
+                System.out.println(finalNfcaText);
+            } else {
+                writeToUiToast("NFC tag is NOT Nfca compatible");
             }
-            String finalNfcaRawText = nfcaContent;
-            String finalNfcaText = "parsed content:\n" + new String(ntagMemory, StandardCharsets.US_ASCII);
-            runOnUiThread(() -> {
-                nfcContentRaw.setText(finalNfcaRawText);
-                nfcContentParsed.setText(finalNfcaText);
-                System.out.println(finalNfcaRawText);
-            });
-        } else{
-            runOnUiThread(() -> {
-                Toast.makeText(getApplicationContext(),
-                        "NFC tag is NOT Nfca compatible",
-                        Toast.LENGTH_SHORT).show();
-            });
+        } catch (
+                IOException e) {
+            writeToUiAppend(nfcContentRaw, "IOException: " + e);
+            //Trying to catch any ioexception that may be thrown
+            e.printStackTrace();
+        } catch (
+                Exception e) {
+            //Trying to catch any exception that may be thrown
+            e.printStackTrace();
+            writeToUiAppend(nfcContentRaw, "Exception: " + e);
+        } finally {
+            try {
+                nfcA.close();
+            } catch (IOException e) {
+                writeToUiAppend(nfcContentRaw, "IOException: " + e);
+            }
         }
-    } catch(
-    IOException e)
 
-    {
-        //Trying to catch any ioexception that may be thrown
-        e.printStackTrace();
-    } catch(
-    Exception e)
-
-    {
-        //Trying to catch any exception that may be thrown
-        e.printStackTrace();
-
-    } finally
-
-    {
-        try {
-            nfcA.close();
-        } catch (IOException e) {
-        }
-    }
-
-}
-
-    public static String bytesToHex(byte[] bytes) {
-        StringBuffer result = new StringBuffer();
-        for (byte b : bytes) result.append(Integer.toString((b & 0xff) + 0x100, 16).substring(1));
-        return result.toString();
-    }
-
-    private String getDec(byte[] bytes) {
-        long result = 0;
-        long factor = 1;
-        for (int i = 0; i < bytes.length; ++i) {
-            long value = bytes[i] & 0xffl;
-            result += value * factor;
-            factor *= 256l;
-        }
-        return result + "";
     }
 
     private void showWirelessSettings() {
         Toast.makeText(this, "You need to enable NFC", Toast.LENGTH_SHORT).show();
         Intent intent = new Intent(Settings.ACTION_WIRELESS_SETTINGS);
         startActivity(intent);
+    }
+
+    private void writeToUiAppend(TextView textView, String message) {
+        runOnUiThread(() -> {
+            String newString = message + "\n" + textView.getText().toString();
+            textView.setText(newString);
+        });
+    }
+
+    private void writeToUiToast(String message) {
+        runOnUiThread(() -> {
+            Toast.makeText(getApplicationContext(),
+                    message,
+                    Toast.LENGTH_SHORT).show();
+        });
     }
 
     @Override
