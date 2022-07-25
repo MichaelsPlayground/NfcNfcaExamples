@@ -130,11 +130,6 @@ public class FastActivity extends AppCompatActivity implements NfcAdapter.Reader
                             return;
                         } else {
                             // success: response contains ACK or actual data
-                            // nfcaContent = nfcaContent + "successful reading " + response.length + " bytes\n";
-                            // nfcaContent = nfcaContent + bytesToHex(response) + "\n";
-                            // copy the response to the ntagMemory
-                            //nfcaContent = nfcaContent + "number of bytes read: : " + response.length + "\n";
-                            //nfcaContent = nfcaContent + "response:\n" + bytesToHex(response) + "\n";
                             System.arraycopy(response, 0, ntagMemory, (nfcaMaxTranceive4ByteLength * i), nfcaMaxTranceive4ByteLength);
                         }
                     } // for
@@ -167,11 +162,6 @@ public class FastActivity extends AppCompatActivity implements NfcAdapter.Reader
                         return;
                     } else {
                         // success: response contains ACK or actual data
-                        // nfcaContent = nfcaContent + "successful reading " + response.length + " bytes\n";
-                        // nfcaContent = nfcaContent + bytesToHex(response) + "\n";
-                        // copy the response to the ntagMemory
-                        //nfcaContent = nfcaContent + "number of bytes read: : " + response.length + "\n";
-                        //nfcaContent = nfcaContent + "response:\n" + bytesToHex(response) + "\n";
                         System.arraycopy(response, 0, ntagMemory, (nfcaMaxTranceive4ByteLength * nfcaNrOfFullReadings), nfcaMaxTranceiveModuloLength);
                     }
 
@@ -190,7 +180,7 @@ public class FastActivity extends AppCompatActivity implements NfcAdapter.Reader
                 }
                 String finalNfcaRawText = nfcaContent;
                 String finalNfcaText = "parsed content:\n" + new String(ntagMemory, StandardCharsets.US_ASCII);
-                writeToUiAppend(nfcContentRaw, finalNfcaText);
+                writeToUiAppend(nfcContentRaw, finalNfcaRawText);
                 writeToUiAppend(nfcContentParsed, finalNfcaText);
                 System.out.println(finalNfcaText);
             } else {
